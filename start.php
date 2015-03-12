@@ -170,7 +170,7 @@ function paypal_process_ipn() {
 					'container_guid' => elgg_get_site_entity()->guid,
 					'txn' => $txn
 				);
-                paypal_log_ipn(elgg_get_site_entity(), $txn);
+                paypal_log_ipn($options);
             }
         }
 
