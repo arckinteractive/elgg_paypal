@@ -148,19 +148,28 @@ function paypal_process_ipn() {
         while (!feof($fp)) {
             $res = fgets ($fp, 1024);
             if (strcmp ($res, "VERIFIED") == 0) {
-					// trigger plugin hook for individual plugins to have an option to save the ipn first
+					// trigger plugin hook for individual plugins to have an option to save their own ipn log
 					$result = elgg_trigger_plugin_hook('paypal', 'ipn_log', array('txn' => $txn), false);
 					
 					if (!$result) {
 						// no plugins logged the transaction, log it to the site
-						// 
-						paypal_log_ipn(elgg_get_site_entity(), $txn);
+						$options = array(
+							'owner_guid' => elgg_get_site_entity()->guid,
+							'container_guid' => elgg_get_site_entity()->guid,
+							'txn' => $txn
+						);
+						paypal_log_ipn($options);
 					}
             }
             else if (strcmp ($res, "INVALID") == 0) {
  
                 // invalid - do nothing for now
                 // IPN invalid, log for manual investigation
+				$options = array(
+					'owner_guid' => elgg_get_site_entity()->guid,
+					'container_guid' => elgg_get_site_entity()->guid,
+					'txn' => $txn
+				);
                 paypal_log_ipn(elgg_get_site_entity(), $txn);
             }
         }
@@ -171,9 +180,12 @@ function paypal_process_ipn() {
 }
 
 
-function paypal_log_ipn($owner, $txn) {
-	if (!elgg_instanceof($owner)) {
-		$owner = elgg_get_site_entity();
+function paypal_log_ipn($options) {
+	if (!$options['owner_guid']) {
+		$options['owner_guid'] = elgg_get_site_entity()->guid;
+	}
+	if (!$options['container_guid']) {
+		$options['container_guid'] = elgg_get_site_entity()->guid;
 	}
 	
 	$ia = elgg_set_ignore_access(true);
@@ -181,14 +193,14 @@ function paypal_log_ipn($owner, $txn) {
 	$log = new ElggObject();
 	$log->subtype = 'paypal_transaction_history';
 	$log->access_id = ACCESS_PRIVATE;
-	$log->owner_guid = $owner->guid;
-	$log->container_guid = $owner->guid;
+	$log->owner_guid = $options['owner_guid'];
+	$log->container_guid = $options['container_guid'];
 	$log->title = '';
-	$log->description = serialize($txn);
+	$log->description = serialize($options['txn']);
 	$log->save();
 	
 	// save individual elements as metadata or getting/sorting
-	$transaction = get_object_vars($txn);
+	$transaction = get_object_vars($options['txn']);
 	
 	foreach ($transaction as $key => $val) {
 		$log->$key = $val;
@@ -197,7 +209,7 @@ function paypal_log_ipn($owner, $txn) {
 	elgg_set_ignore_access($ia);
 	
 	// allow other plugins to modify/save custom info
-	$log = elgg_trigger_plugin_hook('paypal', 'ipn_save', array('txn' => $txn, 'owner' => $owner), $log);
+	$log = elgg_trigger_plugin_hook('paypal', 'ipn_save', array('txn' => $options['txn'], 'owner' => $options['owner']), $log);
 	
 	return $log;
 }

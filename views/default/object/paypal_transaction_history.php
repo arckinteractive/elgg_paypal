@@ -2,6 +2,15 @@
 
 $history = $vars['entity'];
 
+// give the option of a more specific view
+if ($history->txn_type) {
+	$view = elgg_view('object/paypal_transaction_history/' . $history->txn_type, $vars);
+	if ($view) {
+		echo $view;
+		return;
+	}
+}
+
 if ($history->payment_date) {
 	$date = $history->payment_date;
 }
